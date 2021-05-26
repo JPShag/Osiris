@@ -3,11 +3,16 @@
 #include "Utils.h"
 #include "Vector.h"
 
-using matrix3x4 = float[3][4];
+class matrix3x4;
 
 struct Model {
     void* handle;
     char name[260];
+    int	loadFlags;
+    int	serverCount;
+    int	type;
+    int	flags;
+    Vector mins, maxs;
 };
 
 struct ModelRenderInfo {
@@ -21,19 +26,4 @@ struct ModelRenderInfo {
     const Vector* lightingOrigin;
     int flags;
     int entityIndex;
-};
-
-class Material;
-
-class ModelRender {
-public:
-    constexpr void forceMaterialOverride(Material* newMaterial) noexcept
-    {
-        callVirtualMethod<void, Material*, int, int>(this, 1, newMaterial, 0, 0);
-    }
-
-    constexpr bool isMaterialOverriden() noexcept
-    {
-        return callVirtualMethod<bool>(this, 2);
-    }
 };

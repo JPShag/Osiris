@@ -1,26 +1,41 @@
 #pragma once
 
-#include "Utils.h"
+#include "Inconstructible.h"
+#include "UtlVector.h"
+#include "VirtualMethod.h"
 
 class GameEvent {
 public:
-    constexpr auto getName() noexcept
-    {
-        return callVirtualMethod<const char*>(this, 1);
-    }
+    INCONSTRUCTIBLE(GameEvent)
 
-    constexpr auto getInt(const char* keyName) noexcept
-    {
-        return callVirtualMethod<int, const char*, int>(this, 6, keyName, 0);
-    }
+    VIRTUAL_METHOD_V(const char*, getName, 1, (), (this))
+    VIRTUAL_METHOD_V(int, getInt, 6, (const char* keyName, int defaultValue = 0), (this, keyName, defaultValue))
+    VIRTUAL_METHOD_V(float, getFloat, 8, (const char* keyName, float defaultValue = 0.0f), (this, keyName, defaultValue))
+    VIRTUAL_METHOD_V(const char*, getString, 9, (const char* keyName, const char* defaultValue = ""), (this, keyName, defaultValue))
+    VIRTUAL_METHOD_V(void, setString, 16, (const char* keyName, const char* value), (this, keyName, value))
+};
 
-    constexpr auto getString(const char* keyName) noexcept
-    {
-        return callVirtualMethod<const char*, const char*, const char*>(this, 9, keyName, "");
-    }
+class GameEventListener {
+public:
+    virtual ~GameEventListener() {}
+    virtual void fireGameEvent(GameEvent* event) = 0;
+    virtual int getEventDebugId() { return 42; }
+};
 
-    constexpr auto setString(const char* keyName, const char* value) noexcept
-    {
-        callVirtualMethod<void, const char*, const char*>(this, 16, keyName, value);
-    }
+class KeyValues;
+
+class GameEventDescriptor {
+public:
+    int	eventid;
+    int elementIndex;
+    KeyValues* keys;
+    UtlVector<void*> listeners;
+};
+
+class GameEventManager {
+public:
+    INCONSTRUCTIBLE(GameEventManager)
+
+    VIRTUAL_METHOD_V(bool, addListener, 3, (GameEventListener* listener, const char* name), (this, listener, name, false))
+    VIRTUAL_METHOD_V(void, removeListener, 5, (GameEventListener* listener), (this, listener))
 };

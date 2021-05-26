@@ -1,90 +1,80 @@
 #pragma once
 
-#include "Utils.h"
+#include <cstdint>
+#include <functional>
+
+#include "Inconstructible.h"
+#include "Pad.h"
 #include "Vector.h"
+#include "VirtualMethod.h"
+
+struct SteamAPIContext;
+
+struct Matrix4x4 {
+    union {
+        struct {
+            float _11, _12, _13, _14;
+            float _21, _22, _23, _24;
+            float _31, _32, _33, _34;
+            float _41, _42, _43, _44;
+
+        };
+        float m[4][4];
+    };
+};
 
 struct PlayerInfo {
-    __int64 pad;
+    std::uint64_t version;
     union {
-        __int64 steamID64;
-        __int32 xuidLow;
-        __int32 xuidHigh;
+        std::uint64_t xuid;
+        struct {
+            std::uint32_t xuidLow;
+            std::uint32_t xuidHigh;
+        };
     };
     char name[128];
     int userId;
-    char steamIdString[20];
-    char pad1[16];
-    unsigned long steamId;
+    char guid[33];
+    std::uint32_t friendsId;
     char friendsName[128];
     bool fakeplayer;
-    bool ishltv;
-    unsigned int customfiles[4];
-    unsigned char filesdownloaded;
+    bool hltv;
+    int customfiles[4];
+    unsigned char filesDownloaded;
+};
+
+struct DemoPlaybackParameters {
+    PAD(16)
+    bool anonymousPlayerIdentity;
+    PAD(23)
 };
 
 class NetworkChannel;
 
 class Engine {
 public:
-    constexpr auto getPlayerInfo(int entityIndex, const PlayerInfo& playerInfo) noexcept
+    INCONSTRUCTIBLE(Engine)
+
+    VIRTUAL_METHOD(void, getScreenSize, 5, (int& w, int& h), (this, std::ref(w), std::ref(h)))
+    VIRTUAL_METHOD(bool, getPlayerInfo, 8, (int entityIndex, PlayerInfo& playerInfo), (this, entityIndex, std::ref(playerInfo)))
+    VIRTUAL_METHOD(int, getPlayerForUserID, 9, (int userId), (this, userId))
+    VIRTUAL_METHOD(void, getViewAngles, 18, (Vector& angles), (this, std::ref(angles)))
+    VIRTUAL_METHOD(void, setViewAngles, 19, (const Vector& angles), (this, std::cref(angles)))
+    VIRTUAL_METHOD(int, getMaxClients, 20, (), (this))
+    VIRTUAL_METHOD(bool, isInGame, 26, (), (this))
+    VIRTUAL_METHOD(bool, isConnected, 27, (), (this))
+    VIRTUAL_METHOD(bool, cullBox, 34, (const Vector& mins, const Vector& maxs), (this, std::cref(mins), std::cref(maxs)))
+    VIRTUAL_METHOD(const Matrix4x4&, worldToScreenMatrix, 37, (), (this))
+    VIRTUAL_METHOD(void*, getBSPTreeQuery, 43, (), (this))
+    VIRTUAL_METHOD(const char*, getLevelName, 53, (), (this))
+    VIRTUAL_METHOD(NetworkChannel*, getNetworkChannel, 78, (), (this))
+    VIRTUAL_METHOD(void, clientCmdUnrestricted, (IS_WIN32() ? 114 : 113), (const char* cmd, bool fromConsoleOrKeybind = false), (this, cmd, fromConsoleOrKeybind))
+    VIRTUAL_METHOD_V(const SteamAPIContext*, getSteamAPIContext, 185, (), (this))
+
+    auto getViewAngles() noexcept
     {
-        return callVirtualMethod<bool, int, const PlayerInfo&>(this, 8, entityIndex, playerInfo);
-    }
-
-    constexpr auto getPlayerForUserID(int userId) noexcept
-    {
-        return callVirtualMethod<int, int>(this, 9, userId);
-    }
-
-    constexpr auto getLocalPlayer() noexcept
-    {
-        return callVirtualMethod<int>(this, 12);
-    }
-
-    constexpr auto getViewAngles(Vector& angles) noexcept
-    {
-        callVirtualMethod<void, Vector&>(this, 18, angles);
-    }
-
-    constexpr auto setViewAngles(const Vector& angles) noexcept
-    {
-        callVirtualMethod<void, const Vector&>(this, 19, angles);
-    }
-
-	constexpr auto getMaxClients() noexcept
-	{
-		return callVirtualMethod<int>(this, 20);
-	}
-
-	constexpr auto isInGame() noexcept
-	{
-		return callVirtualMethod<bool>(this, 26);
-	}
-
-    using Matrix = float[4][4];
-
-    constexpr auto worldToScreenMatrix() noexcept
-    {
-        return callVirtualMethod<const Matrix&>(this, 37);
-    }
-
-    constexpr auto getBSPTreeQuery() noexcept
-    {
-        return callVirtualMethod<void*>(this, 43);
-    }
-
-    constexpr auto getLevelName() noexcept
-    {
-        return callVirtualMethod<const char*>(this, 53);
-    }
-
-    constexpr auto getNetworkChannel() noexcept
-    {
-        return callVirtualMethod<NetworkChannel*>(this, 78);
-    }
-
-    constexpr auto clientCmdUnrestricted(const char* cmd) noexcept
-    {
-        callVirtualMethod<void, const char*, bool>(this, 114, cmd, false);
+        Vector ang;
+        getViewAngles(ang);
+        return ang;
     }
 };

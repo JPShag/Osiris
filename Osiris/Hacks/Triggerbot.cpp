@@ -1,74 +1,105 @@
-#include <Windows.h>
-
 #include "../Config.h"
 #include "../Interfaces.h"
 #include "../Memory.h"
-#include "../SDK/ConVar.h"
 #include "../SDK/Entity.h"
 #include "../SDK/GlobalVars.h"
+#include "../SDK/UserCmd.h"
 #include "../SDK/WeaponData.h"
 #include "../SDK/WeaponId.h"
 #include "Triggerbot.h"
 
+static bool keyPressed;
+
 void Triggerbot::run(UserCmd* cmd) noexcept
 {
-    const auto localPlayer{ interfaces.entityList->getEntity(interfaces.engine->getLocalPlayer()) };
-    if (localPlayer->nextAttack() > memory.globalVars->serverTime())
+    if (!localPlayer || !localPlayer->isAlive() || localPlayer->nextAttack() > memory->globalVars->serverTime() || localPlayer->isDefusing() || localPlayer->waitForNoAttack())
         return;
 
-    const auto activeWeapon{ localPlayer->getActiveWeapon() };
-    if (!activeWeapon || !activeWeapon->clip() || activeWeapon->nextPrimaryAttack() > memory.globalVars->serverTime())
+    const auto activeWeapon = localPlayer->getActiveWeapon();
+    if (!activeWeapon || !activeWeapon->clip() || activeWeapon->nextPrimaryAttack() > memory->globalVars->serverTime())
         return;
 
-    auto weaponIndex{ getWeaponIndex(activeWeapon->itemDefinitionIndex2()) };
+    if (localPlayer->shotsFired() > 0 && !activeWeapon->isFullAuto())
+        return;
+
+    auto weaponIndex = getWeaponIndex(activeWeapon->itemDefinitionIndex2());
     if (!weaponIndex)
         return;
 
-    auto weaponClass{ getWeaponClass(activeWeapon->itemDefinitionIndex2()) };
-    if (!config.triggerbot[weaponIndex].enabled)
-        weaponIndex = weaponClass;
+    if (!config->triggerbot[weaponIndex].enabled)
+        weaponIndex = getWeaponClass(activeWeapon->itemDefinitionIndex2());
 
-    if (!config.triggerbot[weaponIndex].enabled)
+    if (!config->triggerbot[weaponIndex].enabled)
         weaponIndex = 0;
 
-    static auto lastTime{ 0.0f };
-    
-    if (config.triggerbot[weaponIndex].enabled) {
-        if (const auto now{ memory.globalVars->realtime };
-            (GetAsyncKeyState(config.triggerbot[weaponIndex].key) || !config.triggerbot[weaponIndex].onKey)
-            && now - lastTime >= config.triggerbot[weaponIndex].shotDelay / 1000.0f) {
+    const auto& cfg = config->triggerbot[weaponIndex];
 
-            static auto weaponRecoilScale{ interfaces.cvar->findVar("weapon_recoil_scale") };
-            auto aimPunch{ localPlayer->aimPunchAngle() * weaponRecoilScale->getFloat() };
+    if (!cfg.enabled)
+        return;
 
-            auto maxRange{ 8192.0f };
+    static auto lastTime = 0.0f;
+    static auto lastContact = 0.0f;
 
-            if (auto weaponData{ activeWeapon->getWeaponData() })
-                maxRange = weaponData->range;
+    const auto now = memory->globalVars->realtime;
 
-            Vector viewAngles{ cos(degreesToRadians(cmd->viewangles.x + aimPunch.x)) * cos(degreesToRadians(cmd->viewangles.y + aimPunch.y)) * maxRange,
-                               cos(degreesToRadians(cmd->viewangles.x + aimPunch.x)) * sin(degreesToRadians(cmd->viewangles.y + aimPunch.y)) * maxRange,
-                              -sin(degreesToRadians(cmd->viewangles.x + aimPunch.x)) * maxRange };
-            static Trace trace;
-            interfaces.engineTrace->traceRay({ localPlayer->getEyePosition(), localPlayer->getEyePosition() + viewAngles }, 0x46004009, { localPlayer }, trace);
-            if (trace.entity && trace.entity->getClientClass()->classId == ClassId::CSPlayer
-                && (config.triggerbot[weaponIndex].friendlyFire
-                    || trace.entity->isEnemy())
-                && !trace.entity->gunGameImmunity()
-                && (!config.triggerbot[weaponIndex].hitgroup
-                    || trace.hitgroup == HitGroup{ config.triggerbot[weaponIndex].hitgroup })
-                && (config.triggerbot[weaponIndex].ignoreSmoke
-                    || !memory.lineGoesThroughSmoke(localPlayer->getEyePosition(), localPlayer->getEyePosition() + viewAngles, 1))
-                && (config.triggerbot[weaponIndex].ignoreFlash
-                    || !localPlayer->flashDuration())
-                && (!config.triggerbot[weaponIndex].scopedOnly
-                    || !activeWeapon->isSniperRifle()
-                    || localPlayer->isScoped())) {
-                cmd->buttons |= UserCmd::IN_ATTACK;
-                lastTime = 0.0f;
-            } else {
-                lastTime = now;
-            }
-        }
+    if (now - lastContact < config->triggerbot[weaponIndex].burstTime) {
+        cmd->buttons |= UserCmd::IN_ATTACK;
+        return;
     }
+    lastContact = 0.0f;
+
+    if (!keyPressed)
+        return;
+
+    if (now - lastTime < cfg.shotDelay / 1000.0f)
+        return;
+
+    if (!cfg.ignoreFlash && localPlayer->isFlashed())
+        return;
+
+    if (cfg.scopedOnly && activeWeapon->isSniperRifle() && !localPlayer->isScoped())
+        return;
+
+    const auto weaponData = activeWeapon->getWeaponData();
+    if (!weaponData)
+        return;
+
+    const auto startPos = localPlayer->getEyePosition();
+    const auto endPos = startPos + Vector::fromAngle(cmd->viewangles + localPlayer->getAimPunch()) * weaponData->range;
+
+    if (!cfg.ignoreSmoke && memory->lineGoesThroughSmoke(startPos, endPos, 1))
+        return;
+
+    Trace trace;
+    interfaces->engineTrace->traceRay({ startPos, endPos }, 0x46004009, localPlayer.get(), trace);
+
+    lastTime = now;
+
+    if (!trace.entity || !trace.entity->isPlayer())
+        return;
+
+    if (!cfg.friendlyFire && !localPlayer->isOtherEnemy(trace.entity))
+        return;
+
+    if (trace.entity->gunGameImmunity())
+        return;
+
+    if (cfg.hitgroup && trace.hitgroup != cfg.hitgroup)
+        return;
+
+    float damage = (activeWeapon->itemDefinitionIndex2() != WeaponId::Taser ? HitGroup::getDamageMultiplier(trace.hitgroup) : 1.0f) * weaponData->damage * std::pow(weaponData->rangeModifier, trace.fraction * weaponData->range / 500.0f);
+
+    if (float armorRatio{ weaponData->armorRatio / 2.0f }; activeWeapon->itemDefinitionIndex2() != WeaponId::Taser && HitGroup::isArmored(trace.hitgroup, trace.entity->hasHelmet()))
+        damage -= (trace.entity->armor() < damage * armorRatio / 2.0f ? trace.entity->armor() * 4.0f : damage) * (1.0f - armorRatio);
+
+    if (damage >= (cfg.killshot ? trace.entity->health() : cfg.minDamage)) {
+        cmd->buttons |= UserCmd::IN_ATTACK;
+        lastTime = 0.0f;
+        lastContact = now;
+    }
+}
+
+void Triggerbot::updateInput() noexcept
+{
+    keyPressed = config->triggerbotHoldKey == KeyBind::NONE || config->triggerbotHoldKey.isDown();
 }

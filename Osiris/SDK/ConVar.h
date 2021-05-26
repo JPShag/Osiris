@@ -1,39 +1,27 @@
 #pragma once
 
-#include "Utils.h"
+#include <type_traits>
+
+#include "Inconstructible.h"
+#include "Pad.h"
+#include "Platform.h"
 #include "UtlVector.h"
+#include "VirtualMethod.h"
 
 struct ConVar {
-    constexpr float getFloat() noexcept
-    {
-        return callVirtualMethod<float>(this, 12);
-    }
+    INCONSTRUCTIBLE(ConVar)
 
-    constexpr int getInt() noexcept
-    {
-        return callVirtualMethod<int>(this, 13);
-    }
+    VIRTUAL_METHOD(float, getFloat, WIN32_LINUX(12, 15), (), (this))
+    VIRTUAL_METHOD(int, getInt, WIN32_LINUX(13, 16), (), (this))
+    VIRTUAL_METHOD(void, setValue, WIN32_LINUX(14, 17), (const char* value), (this, value))
+    VIRTUAL_METHOD(void, setValue, WIN32_LINUX(15, 18), (float value), (this, value))
+    VIRTUAL_METHOD(void, setValue, WIN32_LINUX(16, 19), (int value), (this, value))
 
-    constexpr void setValue(const char* value) noexcept
-    {
-        callVirtualMethod<void, const char*>(this, 14, value);
-    }
-
-    constexpr void setValue(float value) noexcept
-    {
-        callVirtualMethod<void, float>(this, 15, value);
-    }
-
-    constexpr void setValue(int value) noexcept
-    {
-        callVirtualMethod<void, int>(this, 16, value);
-    }
-
-    std::byte pad[24];
-    std::add_pointer_t<void()> changeCallback;
+    PAD(WIN32_LINUX(24, 48))
+    std::add_pointer_t<void __CDECL()> changeCallback;
     ConVar* parent;
     const char* defaultValue;
     char* string;
-    std::byte pad1[28];
-    UtlVector<void()> onChangeCallbacks;
+    PAD(28)
+    UtlVector<void(__CDECL*)()> onChangeCallbacks;
 };

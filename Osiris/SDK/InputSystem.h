@@ -1,16 +1,12 @@
 #pragma once
 
-#include "Utils.h"
+#include "Inconstructible.h"
+#include "VirtualMethod.h"
 
 class InputSystem {
 public:
-    constexpr void enableInput(bool enable) noexcept
-    {
-        callVirtualMethod<void, bool>(this, 11, enable);
-    }
+    INCONSTRUCTIBLE(InputSystem)
 
-    constexpr void resetInputState() noexcept
-    {
-        callVirtualMethod<void>(this, 39);
-    }
+    VIRTUAL_METHOD(void, enableInput, 11, (bool enable), (this, enable))
+    VIRTUAL_METHOD(void, resetInputState, 39, (), (this))
 };

@@ -1,89 +1,173 @@
 #pragma once
 
-#include <sstream>
-#include <string_view>
-#include <Windows.h>
-#include <Psapi.h>
+#include <array>
+#include <cstdint>
+#include <memory>
+#include <type_traits>
+
+#include "SDK/Platform.h"
 
 class ClientMode;
+template <typename T> class ClientSharedObjectCache;
+class CSPlayerInventory;
+class EconItem;
+class EconItemAttributeDefinition;
+class Entity;
+class GameEventDescriptor;
+class GameEventManager;
 class Input;
-class ItemSchema;
+class ItemSystem;
+class InventoryManager;
+class KeyValues;
+class MoveHelper;
+class MoveData;
+class PanoramaMarshallHelper;
+class PlantedC4;
+class PlayerResource;
+template <typename T> class SharedObjectTypeCache;
+class ViewRender;
+class ViewRenderBeams;
+class WeaponSystem;
+template <typename Key, typename Value>
+struct UtlMap;
+template <typename T>
+class UtlVector;
+
+struct ActiveChannels;
+struct Channel;
 struct GlobalVars;
 struct GlowObjectManager;
+struct PanoramaEventRegistration;
 struct Vector;
-struct Trace;
-class Entity;
-class ViewRender;
 
 class Memory {
 public:
     Memory() noexcept;
 
-    uintptr_t present;
-    uintptr_t reset;
+#ifdef _WIN32
+    std::uintptr_t present;
+    std::uintptr_t reset;
+#else
+    std::uintptr_t pollEvent;
+    std::uintptr_t swapWindow;
+#endif
 
     ClientMode* clientMode;
     Input* input;
     GlobalVars* globalVars;
     GlowObjectManager* glowObjectManager;
+    UtlVector<PlantedC4*>* plantedC4s;
+    UtlMap<short, PanoramaEventRegistration>* registeredPanoramaEvents;
 
     bool* disablePostProcessing;
 
-    std::add_pointer_t<void __fastcall(const char*) noexcept> loadSky;
-    std::add_pointer_t<void __fastcall(const char*, const char*) noexcept> setClanTag;
-    int* smokeCount;
-    uintptr_t cameraThink;
-    std::add_pointer_t<bool __stdcall(const char*) noexcept> acceptMatch;
-    std::add_pointer_t<bool __cdecl(Vector, Vector, short) noexcept> lineGoesThroughSmoke;
-    int(__thiscall* getSequenceActivity)(void*, int);
-    uintptr_t scopeArc;
-    uintptr_t scopeLens;
-    bool(__thiscall* isOtherEnemy)(Entity*, Entity*);
-    uintptr_t hud;
-    int*(__thiscall* findHudElement)(uintptr_t, const char*);
-    int(__thiscall* clearHudWeapon)(int*, int);
-    std::add_pointer_t<ItemSchema*()> itemSchema;
-    void(__thiscall* setAbsOrigin)(Entity*, const Vector&);
-    uintptr_t listLeaves;
+    std::add_pointer_t<void __FASTCALL(const char*)> loadSky;
+    std::add_pointer_t<void __FASTCALL(const char*, const char*)> setClanTag;
+    std::uintptr_t cameraThink;
+    std::add_pointer_t<bool __CDECL(Vector, Vector, short)> lineGoesThroughSmoke;
+    int(__THISCALL* getSequenceActivity)(void*, int);
+    bool(__THISCALL* isOtherEnemy)(Entity*, Entity*);
+    std::uintptr_t hud;
+    int*(__THISCALL* findHudElement)(std::uintptr_t, const char*);
+    int(__THISCALL* clearHudWeapon)(int*, int);
+    std::add_pointer_t<ItemSystem* __CDECL()> itemSystem;
+    void(__THISCALL* setAbsOrigin)(Entity*, const Vector&);
+    std::uintptr_t listLeaves;
     int* dispatchSound;
-    std::add_pointer_t<bool __cdecl(float, float, float, float, float, float, Trace&) noexcept> traceToExit;
+    std::uintptr_t traceToExit;
     ViewRender* viewRender;
-    uintptr_t drawScreenEffectMaterial;
-    std::add_pointer_t<bool __stdcall(const char*, const char*)> submitReport;
-    uintptr_t test;
-    uintptr_t test2;
+    ViewRenderBeams* viewRenderBeams;
+    std::uintptr_t drawScreenEffectMaterial;
+    std::uint8_t* fakePrime;
+    std::add_pointer_t<void __CDECL(const char* msg, ...)> debugMsg;
+    std::add_pointer_t<void __CDECL(const std::array<std::uint8_t, 4>& color, const char* msg, ...)> conColorMsg;
+    float* vignette;
+    int(__THISCALL* equipWearable)(void* wearable, void* player);
+    int* predictionRandomSeed;
+    MoveData* moveData;
+    MoveHelper* moveHelper;
+    std::uintptr_t keyValuesFromString;
+    KeyValues*(__THISCALL* keyValuesFindKey)(KeyValues* keyValues, const char* keyName, bool create);
+    void(__THISCALL* keyValuesSetString)(KeyValues* keyValues, const char* value);
+    WeaponSystem* weaponSystem;
+    std::add_pointer_t<const char** __FASTCALL(const char* playerModelName)> getPlayerViewmodelArmConfigForPlayerModel;
+    GameEventDescriptor* (__THISCALL* getEventDescriptor)(GameEventManager* _this, const char* name, int* cookie);
+    ActiveChannels* activeChannels;
+    Channel* channels;
+    PlayerResource** playerResource;
+    const wchar_t*(__THISCALL* getDecoratedPlayerName)(PlayerResource* pr, int index, wchar_t* buffer, int buffsize, int flags);
+    std::uintptr_t scopeDust;
+    std::uintptr_t scopeArc;
+    std::uintptr_t demoOrHLTV;
+    std::uintptr_t money;
+    std::uintptr_t demoFileEndReached;
+    Entity** gameRules;
+    InventoryManager* inventoryManager;
+    std::add_pointer_t<EconItem* __STDCALL()> createEconItemSharedObject;
+    bool(__THISCALL* addEconItem)(CSPlayerInventory* _this, EconItem* item, bool updateAckFile, bool writeAckFile, bool checkForNewItems);
+    void(__THISCALL* clearInventoryImageRGBA)(void* itemView);
+    PanoramaMarshallHelper* panoramaMarshallHelper;
+    std::uintptr_t setStickerToolSlotGetArgAsNumberReturnAddress;
+    std::uintptr_t setStickerToolSlotGetArgAsStringReturnAddress;
+    std::uintptr_t wearItemStickerGetArgAsNumberReturnAddress;
+    std::uintptr_t wearItemStickerGetArgAsStringReturnAddress;
+    std::uintptr_t setNameToolStringGetArgAsStringReturnAddress;
+    std::uintptr_t clearCustomNameGetArgAsStringReturnAddress;
+
+    std::add_pointer_t<void* __CDECL(std::uint64_t itemID)> findOrCreateEconItemViewForItemID;
+    void*(__THISCALL* getInventoryItemByItemID)(CSPlayerInventory* _this, std::uint64_t itemID);
+    std::uintptr_t useToolStickerGetArgAsStringReturnAddress;
+    std::uintptr_t useToolGetArg2AsStringReturnAddress;
+    EconItem*(__THISCALL* getSOCData)(void* itemView);
+    void(__THISCALL* setCustomName)(EconItem* _this, const char* name);
+    SharedObjectTypeCache<EconItem>*(__THISCALL* createBaseTypeCache)(ClientSharedObjectCache<EconItem>* _this, int classID);
+
+    short makePanoramaSymbol(const char* name) const noexcept
+    {
+        short symbol;
+        makePanoramaSymbolFn(&symbol, name);
+        return symbol;
+    }
+
+    bool submitReport(const char* xuid, const char* report) const noexcept
+    {
+#ifdef _WIN32
+        return reinterpret_cast<bool(__stdcall*)(const char*, const char*)>(submitReportFunction)(xuid, report);
+#else
+        return reinterpret_cast<bool(*)(void*, const char*, const char*)>(submitReportFunction)(nullptr, xuid, report);
+#endif
+    }
+
+    void setOrAddAttributeValueByName(std::uintptr_t attributeList, const char* attribute, float value) const noexcept
+    {
+#ifdef _WIN32
+        __asm movd xmm2, value
+#else
+        asm("movss %0, %%xmm0" : : "m"(value) : "xmm0");
+#endif
+        setOrAddAttributeValueByNameFunction(attributeList, attribute);
+    }
+
+    void setOrAddAttributeValueByName(std::uintptr_t attributeList, const char* attribute, int value) const noexcept
+    {
+        setOrAddAttributeValueByName(attributeList, attribute, *reinterpret_cast<float*>(&value) /* hack, but CSGO does that */);
+    }
+
+    void setDynamicAttributeValue(EconItem* _this, EconItemAttributeDefinition* attribute, void* value) const noexcept
+    {
+#ifdef _WIN32
+        reinterpret_cast<void(__thiscall*)(EconItem*, EconItemAttributeDefinition*, void*)>(setDynamicAttributeValueFn)(_this, attribute, value);
+#else
+        reinterpret_cast<void(*)(void*, EconItem*, EconItemAttributeDefinition*, void*)>(setDynamicAttributeValueFn)(nullptr, _this, attribute, value);
+#endif
+    }
 
 private:
-    template <typename T = uintptr_t>
-    static auto findPattern(const wchar_t* module, std::string_view pattern, size_t offset = 0) noexcept
-    {
-        MODULEINFO moduleInfo;
+    void(__THISCALL* setOrAddAttributeValueByNameFunction)(std::uintptr_t, const char* attribute);
+    void(__THISCALL* makePanoramaSymbolFn)(short* symbol, const char* name);
 
-        if (GetModuleInformation(GetCurrentProcess(), GetModuleHandleW(module), &moduleInfo, sizeof(moduleInfo))) {
-            char* begin = static_cast<char*>(moduleInfo.lpBaseOfDll);
-            char* end = begin + moduleInfo.SizeOfImage - pattern.length() + 1;
-
-            for (char* c = begin; c != end; c++) {
-                bool matched = true;
-                auto it = c;
-
-                if (*(c + pattern.length() - 1) != pattern.back())
-                    continue;
-
-                for (auto a : pattern) {
-                    if (a != '?' && *it != a) {
-                        matched = false;
-                        break;
-                    }
-                    it++;
-                }
-                if (matched)
-                    return reinterpret_cast<T>(c + offset);
-            }
-        }
-        MessageBox(NULL, (std::ostringstream{ } << "Failed to find pattern in " << module << '!').str().c_str(), "Error", MB_OK | MB_ICONERROR);
-        exit(EXIT_FAILURE);
-    }
+    std::uintptr_t submitReportFunction;
+    std::uintptr_t setDynamicAttributeValueFn;
 };
 
-extern Memory memory;
+inline std::unique_ptr<const Memory> memory;

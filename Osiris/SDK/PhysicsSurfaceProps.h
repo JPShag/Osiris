@@ -1,11 +1,11 @@
 #pragma once
 
-#include <cstddef>
-
-#include "Utils.h"
+#include "Inconstructible.h"
+#include "Pad.h"
+#include "VirtualMethod.h"
 
 struct SurfaceData {
-    std::byte pad[80];
+    PAD(80)
     float maxspeedfactor;
     float jumpfactor;
     float penetrationmodifier;
@@ -16,8 +16,7 @@ struct SurfaceData {
 
 class PhysicsSurfaceProps {
 public:
-    constexpr auto getSurfaceData(int index) noexcept
-    {
-        return callVirtualMethod<SurfaceData*, int>(this, 5, index);
-    }
+    INCONSTRUCTIBLE(PhysicsSurfaceProps)
+
+    VIRTUAL_METHOD_V(SurfaceData*, getSurfaceData, 5, (int index), (this, index))
 };

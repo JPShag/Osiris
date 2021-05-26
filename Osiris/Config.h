@@ -1,20 +1,31 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <filesystem>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "imgui/imgui.h"
-#include "nSkinz/config_.hpp"
+#include "Hacks/InventoryChanger.h"
+#include "ConfigStructs.h"
+#include "InputUtil.h"
 
 class Config {
 public:
-    explicit Config(const char*) noexcept;
-    void load(size_t) noexcept;
-    void save(size_t) const noexcept;
+    Config() noexcept;
+    void load(std::size_t, bool incremental) noexcept;
+    void load(const char8_t* name, bool incremental) noexcept;
+    void save(std::size_t) const noexcept;
     void add(const char*) noexcept;
-    void remove(size_t) noexcept;
-    void rename(size_t, const char*) noexcept;
+    void remove(std::size_t) noexcept;
+    void rename(std::size_t, const char*) noexcept;
     void reset() noexcept;
+    void listConfigs() noexcept;
+    void createConfigDir() const noexcept;
+    void openConfigDir() const noexcept;
 
     constexpr auto& getConfigs() noexcept
     {
@@ -23,9 +34,6 @@ public:
 
     struct Aimbot {
         bool enabled{ false };
-        bool onKey{ false };
-        int key{ 0 };
-        int keyMode{ 0 };
         bool aimlock{ false };
         bool silent{ false };
         bool friendlyFire{ false };
@@ -35,98 +43,71 @@ public:
         bool ignoreSmoke{ false };
         bool autoShot{ false };
         bool autoScope{ false };
-        bool recoilbasedFov{ false };
         float fov{ 0.0f };
         float smooth{ 1.0f };
         int bone{ 0 };
-        float recoilControlX{ 0.0f };
-        float recoilControlY{ 0.0f };
         float maxAimInaccuracy{ 1.0f };
         float maxShotInaccuracy{ 1.0f };
+        int minDamage{ 1 };
         bool killshot{ false };
         bool betweenShots{ true };
     };
-    std::array<Aimbot, 39> aimbot;
+    std::array<Aimbot, 40> aimbot;
+    bool aimbotOnKey{ false };
+    KeyBind aimbotKey = KeyBind::NONE;
+    int aimbotKeyMode{ 0 };
 
     struct Triggerbot {
-        bool enabled{ false };
-        bool onKey{ false };
-        int key{ 0 };
-        bool friendlyFire{ false };
-        bool scopedOnly{ true };
-        bool ignoreFlash{ false };
-        bool ignoreSmoke{ false };
-        int hitgroup{ 0 };
-        int shotDelay{ 0 };
+        bool enabled = false;
+        bool friendlyFire = false;
+        bool scopedOnly = true;
+        bool ignoreFlash = false;
+        bool ignoreSmoke = false;
+        bool killshot = false;
+        int hitgroup = 0;
+        int shotDelay = 0;
+        int minDamage = 1;
+        float burstTime = 0.0f;
     };
-    std::array<Triggerbot, 39> triggerbot;
-
-    struct {
-        bool enabled{ false };
-        bool ignoreSmoke{ false };
-        bool recoilBasedFov{ false };
-        int timeLimit{ 200 };
-    } backtrack;
-
-    struct {
-        bool enabled{ false };
-        bool pitch{ false };
-        float pitchAngle{ 0.0f };
-        bool yaw{ false };
-    } antiAim;
-
-    struct Glow {
-        bool enabled{ false };
-        bool healthBased{ false };
-        bool rainbow{ false };
-        float thickness{ 1.0f };
-        float alpha{ 1.0f };
-        int style{ 0 };
-        float color[3]{ 1.0f, 1.0f, 1.0f };
-    };
-    std::array<Glow, 21> glow;
+    std::array<Triggerbot, 40> triggerbot;
+    KeyBind triggerbotHoldKey = KeyBind::NONE;
 
     struct Chams {
-        bool enabled{ false };
-        bool healthBased{ false };
-        bool rainbow{ false };
-        bool blinking{ false };
-        int material{ 0 };
-        bool wireframe{ false };
-        float color[3]{ 1.0f, 1.0f, 1.0f };
-        float alpha{ 1.0f };
+        struct Material : Color4 {
+            bool enabled = false;
+            bool healthBased = false;
+            bool blinking = false;
+            bool wireframe = false;
+            bool cover = false;
+            bool ignorez = false;
+            int material = 0;
+        };
+        std::array<Material, 7> materials;
     };
 
-    std::array<Chams, 17> chams;
+    std::unordered_map<std::string, Chams> chams;
+    KeyBindToggle chamsToggleKey = KeyBind::NONE;
+    KeyBind chamsHoldKey = KeyBind::NONE;
 
-    struct Esp {
-        bool enabled{ false };
-        int font{ 0x1d };
-        bool snaplines{ false };
-        float snaplinesColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool eyeTraces{ false };
-        float eyeTracesColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool box{ false };
-        float boxColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool name{ false };
-        float nameColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool health{ false };
-        float healthColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool healthBar{ false };
-        float healthBarColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool armor{ false };
-        float armorColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool armorBar{ false };
-        float armorBarColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool money{ false };
-        float moneyColor[3]{ 1.0f, 1.0f, 1.0f };
-        bool headDot{ false };
-        float headDotColor[3]{ 1.0f, 1.0f, 1.0f };
+    struct StreamProofESP {
+        KeyBindToggle toggleKey = KeyBind::NONE;
+        KeyBind holdKey = KeyBind::NONE;
+
+        std::unordered_map<std::string, Player> allies;
+        std::unordered_map<std::string, Player> enemies;
+        std::unordered_map<std::string, Weapon> weapons;
+        std::unordered_map<std::string, Projectile> projectiles;
+        std::unordered_map<std::string, Shared> lootCrates;
+        std::unordered_map<std::string, Shared> otherEntities;
+    } streamProofESP;
+
+    struct Font {
+        ImFont* tiny;
+        ImFont* medium;
+        ImFont* big;
     };
 
-    std::array<Esp, 6> esp;
-
-    struct {
+    struct Visuals {
         bool disablePostProcessing{ false };
         bool inverseRagdollGravity{ false };
         bool noFog{ false };
@@ -143,9 +124,9 @@ public:
         bool noShadows{ false };
         bool wireframeSmoke{ false };
         bool zoom{ false };
-        int zoomKey{ 0 };
+        KeyBindToggle zoomKey = KeyBind::NONE;
         bool thirdperson{ false };
-        int thirdpersonKey{ 0 };
+        KeyBindToggle thirdpersonKey = KeyBind::NONE;
         int thirdpersonDistance{ 0 };
         int viewmodelFov{ 0 };
         int fov{ 0 };
@@ -153,84 +134,134 @@ public:
         int flashReduction{ 0 };
         float brightness{ 0.0f };
         int skybox{ 0 };
-        float worldColor[3]{ 0.0f, 0.0f, 0.0f };
+        ColorToggle3 world;
+        ColorToggle3 sky;
         bool deagleSpinner{ false };
         int screenEffect{ 0 };
+        int hitEffect{ 0 };
+        float hitEffectTime{ 0.6f };
         int hitMarker{ 0 };
         float hitMarkerTime{ 0.6f };
+        int playerModelT{ 0 };
+        int playerModelCT{ 0 };
+        BulletTracers bulletTracers;
+        ColorToggle molotovHull{ 1.0f, 0.27f, 0.0f, 0.3f };
+
+        struct ColorCorrection {
+            bool enabled = false;
+            float blue = 0.0f;
+            float red = 0.0f;
+            float mono = 0.0f;
+            float saturation = 0.0f;
+            float ghost = 0.0f;
+            float green = 0.0f;
+            float yellow = 0.0f;
+        } colorCorrection;
     } visuals;
 
-    std::array<item_setting, 36> skinChanger;
-
-    struct {
-        int chickenVolume{ 100 };
-
-        struct Player {
-            int masterVolume{ 100 };
-            int headshotVolume{ 100 };
-            int weaponVolume{ 100 };
-            int footstepVolume{ 100 };
-        };
-
-        std::array<Player, 3> players;
-    } sound;
-
-    struct {
+    struct Style {
         int menuStyle{ 0 };
         int menuColors{ 0 };
     } style;
 
-    struct {
-        int menuKey{ 0x2D }; // VK_INSERT
+    struct Misc {
+        Misc() { clanTag[0] = '\0'; }
+
+        KeyBind menuKey = KeyBind::INSERT;
         bool antiAfkKick{ false };
         bool autoStrafe{ false };
         bool bunnyHop{ false };
         bool customClanTag{ false };
-        char clanTag[16]{ "" };
+        bool clocktag{ false };
         bool animatedClanTag{ false };
         bool fastDuck{ false };
         bool moonwalk{ false };
-        bool sniperCrosshair{ false };
-        bool recoilCrosshair{ false };
+        bool edgejump{ false };
+        bool slowwalk{ false };
         bool autoPistol{ false };
         bool autoReload{ false };
         bool autoAccept{ false };
         bool radarHack{ false };
         bool revealRanks{ false };
-        bool spectatorList{ false };
-        bool watermark{ false };
+        bool revealMoney{ false };
+        bool revealSuspect{ false };
+        bool revealVotes{ false };
         bool fixAnimationLOD{ false };
         bool fixBoneMatrix{ false };
         bool fixMovement{ false };
         bool disableModelOcclusion{ false };
-        bool killMessage{ false };
-        char killMessageString[230]{ "Gotcha!" };
         bool nameStealer{ false };
+        bool disablePanoramablur{ false };
+        bool killMessage{ false };
+        bool nadePredict{ false };
+        bool fixTabletSignal{ false };
+        bool fakePrime{ false };
         bool fastPlant{ false };
-        bool bombTimer{ false };
+        bool fastStop{ false };
         bool quickReload{ false };
         bool prepareRevolver{ false };
-        int prepareRevolverKey{ 0 };
+        bool oppositeHandKnife = false;
+        bool deathmatchGod = false;
+        PreserveKillfeed preserveKillfeed;
+        char clanTag[16];
+        KeyBind edgejumpkey = KeyBind::NONE;
+        KeyBind slowwalkKey = KeyBind::NONE;
+        ColorToggleThickness noscopeCrosshair;
+        ColorToggleThickness recoilCrosshair;
+
+        struct SpectatorList {
+            bool enabled = false;
+            bool noTitleBar = false;
+            ImVec2 pos;
+            ImVec2 size{ 200.0f, 200.0f };
+        };
+
+        SpectatorList spectatorList;
+        struct Watermark {
+            bool enabled = false;
+        };
+        Watermark watermark;
+        float aspectratio{ 0 };
+        std::string killMessageString{ "Gotcha!" };
+        int banColor{ 6 };
+        std::string banText{ "Cheater has been permanently banned from official CS:GO servers." };
+        ColorToggle3 bombTimer{ 1.0f, 0.55f, 0.0f };
+        KeyBind prepareRevolverKey = KeyBind::NONE;
         int hitSound{ 0 };
         int chokedPackets{ 0 };
-        int chokedPacketsKey{ 0 };
+        KeyBind chokedPacketsKey = KeyBind::NONE;
+        int quickHealthshotKey{ 0 };
         float maxAngleDelta{ 255.0f };
+        int killSound{ 0 };
+        std::string customKillSound;
+        std::string customHitSound;
+        PurchaseList purchaseList;
+
+        struct Reportbot {
+            bool enabled = false;
+            bool textAbuse = false;
+            bool griefing = false;
+            bool wallhack = true;
+            bool aimbot = true;
+            bool other = true;
+            int target = 0;
+            int delay = 1;
+            int rounds = 1;
+        } reportbot;
+
+        OffscreenEnemies offscreenEnemies;
     } misc;
 
-    struct {
-        bool enabled{ false };
-        int target{ 0 };
-        int delay{ 10 };
-        bool aimbot{ false };
-        bool wallhack{ false };
-        bool other{ false };
-        bool griefing{ false };
-        bool voiceAbuse{ false };
-        bool textAbuse{ false };
-    } reportbot;
+    void scheduleFontLoad(const std::string& name) noexcept;
+    bool loadScheduledFonts() noexcept;
+    const auto& getSystemFonts() noexcept { return systemFonts; }
+    const auto& getFonts() noexcept { return fonts; }
 private:
+    std::vector<std::string> scheduledFonts{ "Default" };
+    std::vector<std::string> systemFonts{ "Default" };
+    std::unordered_map<std::string, Font> fonts;
     std::filesystem::path path;
     std::vector<std::string> configs;
 };
 
-extern Config config;
+inline std::unique_ptr<Config> config;

@@ -1,62 +1,66 @@
 #pragma once
 
-#include <d3d9.h>
+#include <memory>
 #include <type_traits>
 
-#include "Interfaces.h"
-#include "Memory.h"
-#include "SDK/Cvar.h"
-#include "SDK/Engine.h"
+#ifdef _WIN32
+#include <d3d9.h>
+#include <Windows.h>
+#elif __linux__
+struct SDL_Window;
+union SDL_Event;
+#endif
+
+#include "Hooks/MinHook.h"
+#include "Hooks/VmtHook.h"
+#include "Hooks/VmtSwap.h"
+
+#include "SDK/Platform.h"
 
 struct SoundInfo;
 
+#ifdef _WIN32
+// Easily switch hooking method for all hooks, choose between MinHook/VmtHook/VmtSwap
+using HookType = MinHook;
+#else
+using HookType = VmtSwap;
+#endif
+
 class Hooks {
 public:
-    Hooks() noexcept;
-    void restore() noexcept;
+#ifdef _WIN32
+    Hooks(HMODULE moduleHandle) noexcept;
 
     WNDPROC originalWndProc;
     std::add_pointer_t<HRESULT __stdcall(IDirect3DDevice9*, const RECT*, const RECT*, HWND, const RGNDATA*)> originalPresent;
     std::add_pointer_t<HRESULT __stdcall(IDirect3DDevice9*, D3DPRESENT_PARAMETERS*)> originalReset;
-    std::add_pointer_t<int __fastcall(SoundInfo&)> originalDispatchSound;
+#else
+    Hooks() noexcept;
 
-    class Vmt {
-    public:
-        explicit Vmt(void* const) noexcept;
-        void restore() noexcept;
+    std::add_pointer_t<int(SDL_Event*)> pollEvent;
+    std::add_pointer_t<void(SDL_Window*)> swapWindow;
+#endif
 
-        template<typename T>
-        void hookAt(size_t index, T fun) const noexcept
-        {
-            if (index <= length)
-                newVmt[index + 1] = reinterpret_cast<uintptr_t>(fun);
-        }
+    void install() noexcept;
+    void uninstall() noexcept;
 
-        template<typename T, typename ...Args>
-        constexpr auto callOriginal(size_t index, Args... args) const noexcept
-        {
-            return reinterpret_cast<T(__thiscall*)(void*, Args...)>(oldVmt[index])(base, args...);
-        }
-    private:
-        static uintptr_t* findFreeDataPage(void* const, size_t) noexcept;
-        static auto calculateLength(uintptr_t*) noexcept;
-        void* base;
-        uintptr_t* oldVmt;
-        uintptr_t* newVmt;
-        size_t length;
-    };
+    std::add_pointer_t<int __FASTCALL(SoundInfo&)> originalDispatchSound;
 
-    Vmt bspQuery{ interfaces.engine->getBSPTreeQuery() };
-    Vmt client{ interfaces.client };
-    Vmt clientMode{ memory.clientMode };
-    Vmt engine{ interfaces.engine };
-    Vmt gameEventManager{ interfaces.gameEventManager };
-    Vmt modelRender{ interfaces.modelRender };
-    Vmt panel{ interfaces.panel };
-    Vmt sound{ interfaces.sound };
-    Vmt surface{ interfaces.surface };
-    Vmt svCheats{ interfaces.cvar->findVar("sv_cheats") };
-    Vmt viewRender{ memory.viewRender };
+    HookType bspQuery;
+    HookType client;
+    HookType clientMode;
+    HookType engine;
+    HookType modelRender;
+    HookType panoramaMarshallHelper;
+    HookType sound;
+    HookType surface;
+    HookType viewRender;
+    HookType svCheats;
+private:
+#ifdef _WIN32
+    HMODULE moduleHandle;
+    HWND window;
+#endif
 };
 
-extern Hooks hooks;
+inline std::unique_ptr<Hooks> hooks;

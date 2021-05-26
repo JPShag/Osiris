@@ -1,49 +1,47 @@
 #pragma once
 
-#include <string>
+#include <memory>
+
+struct ImFont;
 
 class GUI {
 public:
     GUI() noexcept;
     void render() noexcept;
-    bool isOpen{ false };
+    void handleToggle() noexcept;
+    bool isOpen() noexcept { return open; }
 private:
-    static void checkboxedColorPicker(const std::string&, bool*, float*) noexcept;
-    static void hotkey(int&) noexcept;
+    bool open = true;
+
     void updateColors() const noexcept;
     void renderMenuBar() noexcept;
-    void renderAimbotWindow() noexcept;
-    void renderAntiAimWindow() noexcept;
-    void renderTriggerbotWindow() noexcept;
-    void renderBacktrackWindow() noexcept;
-    void renderGlowWindow() noexcept;
-    void renderChamsWindow() noexcept;
-    void renderEspWindow() noexcept;
-    void renderVisualsWindow() noexcept;
-    void renderSkinChangerWindow() noexcept;
-    void renderSoundWindow() noexcept;
-    void renderStyleWindow() noexcept;
-    void renderMiscWindow() noexcept;
-    void renderReportbotWindow() noexcept;
-    void renderConfigWindow() noexcept;
+    void renderAimbotWindow(bool contentOnly = false) noexcept;
+    void renderTriggerbotWindow(bool contentOnly = false) noexcept;
+    void renderChamsWindow(bool contentOnly = false) noexcept;
+    void renderStreamProofESPWindow(bool contentOnly = false) noexcept;
+    void renderVisualsWindow(bool contentOnly = false) noexcept;
+    void renderStyleWindow(bool contentOnly = false) noexcept;
+    void renderMiscWindow(bool contentOnly = false) noexcept;
+    void renderConfigWindow(bool contentOnly = false) noexcept;
     void renderGuiStyle2() noexcept;
 
     struct {
-        bool aimbot{ false };
-        bool antiAim{ false };
-        bool triggerbot{ false };
-        bool backtrack{ false };
-        bool glow{ false };
-        bool chams{ false };
-        bool esp{ false };
-        bool visuals{ false };
-        bool skinChanger{ false };
-        bool sound{ false };
-        bool style{ false };
-        bool misc{ false };
-        bool reportbot{ false };
-        bool config{ false };
+        bool aimbot = false;
+        bool triggerbot = false;
+        bool chams = false;
+        bool streamProofESP = false;
+        bool visuals = false;
+        bool sound = false;
+        bool style = false;
+        bool misc = false;
+        bool config = false;
     } window;
+
+    struct {
+        ImFont* normal15px = nullptr;
+    } fonts;
+
+    float timeToNextConfigRefresh = 0.1f;
 };
 
-extern GUI gui;
+inline std::unique_ptr<GUI> gui;

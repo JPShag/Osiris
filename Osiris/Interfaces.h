@@ -1,71 +1,90 @@
 #pragma once
 
-#include <sstream>
-#include <stdexcept>
+#include <memory>
+#include <string>
 #include <type_traits>
-#include <Windows.h>
 
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+#include "SDK/Platform.h"
+
+class BaseFileSystem;
 class Client;
 class Cvar;
 class Engine;
+class EngineSound;
 class EngineTrace;
 class EntityList;
 class GameEventManager;
+class GameMovement;
 class GameUI;
 class InputSystem;
 class Localize;
 class MaterialSystem;
 class ModelInfo;
 class ModelRender;
-class Panel;
+class NetworkStringTableContainer;
+class PanoramaUIEngine;
 class PhysicsSurfaceProps;
+class Prediction;
 class RenderView;
-class ResourceAccessControl;
 class Surface;
-class Sound;
 class SoundEmitter;
+class StudioRender;
 
 class Interfaces {
 public:
-    Interfaces() noexcept;
+#define GAME_INTERFACE(type, name, moduleName, version) \
+type* name = reinterpret_cast<type*>(find(moduleName, version));
 
-    Client* client;
-    Cvar* cvar;
-    Engine* engine;
-    EngineTrace* engineTrace;
-    EntityList* entityList;
-    GameEventManager* gameEventManager;
-    GameUI* gameUI;
-    InputSystem* inputSystem;
-    Localize* localize;
-    MaterialSystem* materialSystem;
-    ModelInfo* modelInfo;
-    ModelRender* modelRender;
-    Panel* panel;
-    PhysicsSurfaceProps* physicsSurfaceProps;
-    RenderView* renderView;
-    ResourceAccessControl* resourceAccessControl;
-    Surface* surface;
-    Sound* sound;
-    SoundEmitter* soundEmitter;
+    GAME_INTERFACE(BaseFileSystem, baseFileSystem, FILESYSTEM_DLL, "VBaseFileSystem011")
+    GAME_INTERFACE(Client, client, CLIENT_DLL, "VClient018")
+    GAME_INTERFACE(Cvar, cvar, VSTDLIB_DLL, "VEngineCvar007")
+    GAME_INTERFACE(Engine, engine, ENGINE_DLL, "VEngineClient014")
+    GAME_INTERFACE(EngineTrace, engineTrace, ENGINE_DLL, "EngineTraceClient004")
+    GAME_INTERFACE(EntityList, entityList, CLIENT_DLL, "VClientEntityList003")
+    GAME_INTERFACE(GameEventManager, gameEventManager, ENGINE_DLL, "GAMEEVENTSMANAGER002")
+    GAME_INTERFACE(GameMovement, gameMovement, CLIENT_DLL, "GameMovement001")
+    GAME_INTERFACE(GameUI, gameUI, CLIENT_DLL, "GameUI011")
+    GAME_INTERFACE(InputSystem, inputSystem, INPUTSYSTEM_DLL, "InputSystemVersion001")
+    GAME_INTERFACE(Localize, localize, LOCALIZE_DLL, "Localize_001")
+    GAME_INTERFACE(MaterialSystem, materialSystem, MATERIALSYSTEM_DLL, "VMaterialSystem080")
+    GAME_INTERFACE(ModelInfo, modelInfo, ENGINE_DLL, "VModelInfoClient004")
+    GAME_INTERFACE(ModelRender, modelRender, ENGINE_DLL, "VEngineModel016")
+    GAME_INTERFACE(NetworkStringTableContainer, networkStringTableContainer, ENGINE_DLL, "VEngineClientStringTable001")
+    GAME_INTERFACE(PanoramaUIEngine, panoramaUIEngine, PANORAMA_DLL, "PanoramaUIEngine001")
+    GAME_INTERFACE(PhysicsSurfaceProps, physicsSurfaceProps, VPHYSICS_DLL, "VPhysicsSurfaceProps001")
+    GAME_INTERFACE(Prediction, prediction, CLIENT_DLL, "VClientPrediction001")
+    GAME_INTERFACE(RenderView, renderView, ENGINE_DLL, "VEngineRenderView014")
+    GAME_INTERFACE(Surface, surface, VGUIMATSURFACE_DLL, "VGUI_Surface031")
+    GAME_INTERFACE(EngineSound, sound, ENGINE_DLL, "IEngineSoundClient003")
+    GAME_INTERFACE(SoundEmitter, soundEmitter, SOUNDEMITTERSYSTEM_DLL, "VSoundEmitter003")
+    GAME_INTERFACE(StudioRender, studioRender, STUDIORENDER_DLL, "VStudioRender026")
+
+#undef GAME_INTERFACE
 private:
-    template <typename T>
-    static auto find(const wchar_t* module, const char* name)
+    static void* find(const char* moduleName, const char* name) noexcept
     {
-        const auto createInterface = reinterpret_cast<std::add_pointer_t<T* (const char* name, int* returnCode)>>(GetProcAddress(GetModuleHandleW(module), "CreateInterface"));
-
-        T* foundInterface{ nullptr };
-
-        if (createInterface)
-            foundInterface = createInterface(name, nullptr);
-
-        if (foundInterface)
-            return foundInterface;
-        else {
-            MessageBoxA(nullptr, (std::ostringstream{ } << "Failed to find " << name << " interface!").str().c_str(), "Error", MB_OK | MB_ICONERROR);
-            exit(EXIT_FAILURE);
+        if (const auto createInterface = reinterpret_cast<std::add_pointer_t<void* __CDECL(const char* name, int* returnCode)>>(
+#ifdef _WIN32
+            GetProcAddress(GetModuleHandleA(moduleName), "CreateInterface")
+#else
+            dlsym(dlopen(moduleName, RTLD_NOLOAD | RTLD_LAZY), "CreateInterface")
+#endif
+            )) {
+            if (void* foundInterface = createInterface(name, nullptr))
+                return foundInterface;
         }
+
+#ifdef _WIN32
+        MessageBoxA(nullptr, ("Failed to find " + std::string{ name } + " interface!").c_str(), "Osiris", MB_OK | MB_ICONERROR);
+#endif
+        std::exit(EXIT_FAILURE);
     }
 };
 
-extern Interfaces interfaces;
+inline std::unique_ptr<const Interfaces> interfaces;
